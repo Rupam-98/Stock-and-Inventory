@@ -1,2 +1,1 @@
-# Employee-Management
-Employee Management
+Stock and Inventory Management System
