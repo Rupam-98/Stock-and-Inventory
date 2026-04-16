@@ -59,8 +59,8 @@ if(isset($_POST['login'])){
 <html>
 <head>
     <title>University Inventory System</title>
-    <link rel="stylesheet" href="css/login.css">
-    <script src="js/login.js"></script>
+    <link rel="stylesheet" href="Assets/CSS/login.css">
+    <script src="Assets/js/login.js"></script>
 </head>
 <body>
 
