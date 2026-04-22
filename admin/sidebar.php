@@ -1,7 +1,33 @@
 <!DOCTYPE html>
-<!-- Sidebar -->
 
 <style>
+    body {
+        background-color: #f4f6f9;
+    }
+
+    .sidebar {
+        height: 100vh;
+        background: #1f2937;
+        color: white;
+        padding: 20px;
+    }
+
+    .sidebar a {
+        color: white;
+        display: block;
+        padding: 10px;
+        text-decoration: none;
+        border-radius: 5px;
+    }
+
+    .sidebar a:hover {
+        background: #374151;
+    }
+
+    .card {
+        border-radius: 15px;
+    }
+
     .submenu {
         max-height: 0;
         overflow: hidden;
@@ -40,7 +66,7 @@
 </style>
 <div class="col-md-2 sidebar">
     <h4 class="mb-4">Admin Panel</h4>
-    <a href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="../admin/dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
 
 
     <a href="#" class="menu-toggle" onclick="toggleMenu(event, 'deptMenu')">
@@ -49,8 +75,9 @@
     </a>
 
     <div id="deptMenu" class="submenu">
-        <a href="departments.php">➤ View Departments</a>
-        <a href="#">➤ Add Department</a>
+        <a href="../Department/add_dept.php">➤ Add Department</a>
+        <a href="../Department/add_dept_admin.php">➤ Add Dept Admin</a>
+
     </div>
 
     <a href="#"><i class="bi bi-people"></i> Students</a>

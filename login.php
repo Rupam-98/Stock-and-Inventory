@@ -1,6 +1,6 @@
 <?php
 session_start();
-include("Conection/conn.php");
+include("Connection/conn.php");
 
 if(isset($_POST['login'])){
 
@@ -32,7 +32,7 @@ if(isset($_POST['login'])){
         if(password_verify($password, $dept_admin['password'])){
             $_SESSION['role'] = "dept_admin";
             $_SESSION['dept_admin_id'] = $dept_admin['dept_admin_id'];
-            header("Location: dept_admin/dashboard.php");
+            header("Location: Department/dept_dashboard.php");
             exit();
         }
     }

@@ -1,6 +1,6 @@
 <?php
 session_start();
-include("../Conection/conn.php");
+include("../Connection/conn.php");
 
 // Protect Page
 if (!isset($_SESSION['role']) || $_SESSION['role'] != "admin") {
@@ -10,9 +10,9 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != "admin") {
 
 // Fetch Statistics
 $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM department"), 0, 0);
-$total_students = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM students"), 0, 0);
+// $total_students = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM students"), 0, 0);
 // $total_items = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM inventory"), 0, 0);
-$total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests"), 0, 0);
+// $total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests"), 0, 0);
 ?>
 
 <!DOCTYPE html>
@@ -21,10 +21,8 @@ $total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests
 <head>
     <title>Admin Dashboard</title>
 
-    <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
@@ -101,12 +99,12 @@ $total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests
                         </div>
                     </div>
 
-                    <div class="col-md-3">
+                    <!-- <div class="col-md-3">
                         <div class="stat-card bg2">
                             <h5>Total Students</h5>
                             <h2><?php echo $total_students; ?></h2>
                         </div>
-                    </div>
+                    </div> -->
 
                     <!-- <div class="col-md-3">
                     <div class="stat-card bg3">
@@ -114,13 +112,13 @@ $total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests
                         <h2><?php echo $total_items; ?></h2>
                     </div>
                 </div> -->
-
+<!-- 
                     <div class="col-md-3">
                         <div class="stat-card bg4">
                             <h5>Total Requests</h5>
                             <h2><?php echo $total_requests; ?></h2>
                         </div>
-                    </div>
+                    </div> -->
 
                 </div>
             </div>

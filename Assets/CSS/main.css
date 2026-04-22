@@ -1,0 +1,18 @@
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 220px;
+            height: 100vh;
+            background: #1f2937;
+            color: white;
+            padding: 20px;
+        }
+
+        .main-content {
+            width: calc(100% - 220px);
+            margin-left: 220px;
+            padding: 20px;
+            background: #f4f6f9;
+            min-height: 100vh;
+        }
