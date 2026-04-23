@@ -25,58 +25,58 @@ $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM depar
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
-    <style>
-        body {
-            background-color: #f4f6f9;
-        }
+        <style>
+            body {
+                background-color: #f4f6f9;
+            }
 
-        .sidebar {
-            height: 100vh;
-            background: #1f2937;
-            color: white;
-            padding: 20px;
-        }
+            .sidebar {
+                height: 100vh;
+                background: #1f2937;
+                color: white;
+                padding: 20px;
+            }
 
-        .sidebar a {
-            color: white;
-            text-decoration: none;
-            display: block;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 5px;
-        }
+            .sidebar a {
+                color: white;
+                text-decoration: none;
+                display: block;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 5px;
+            }
 
-        .sidebar a:hover {
-            background: #374151;
-        }
+            .sidebar a:hover {
+                background: #374151;
+            }
 
-        .card {
-            border: none;
-            border-radius: 15px;
-        }
+            .card {
+                border: none;
+                border-radius: 15px;
+            }
 
-        .stat-card {
-            padding: 20px;
-            color: white;
-            border-radius: 15px;
-        }
+            .stat-card {
+                padding: 20px;
+                color: white;
+                border-radius: 15px;
+            }
 
-        .bg1 {
-            background: linear-gradient(45deg, #4e73df, #224abe);
-        }
+            .bg1 {
+                background: linear-gradient(45deg, #4e73df, #224abe);
+            }
 
-        .bg2 {
-            background: linear-gradient(45deg, #1cc88a, #17a673);
-        }
+            .bg2 {
+                background: linear-gradient(45deg, #1cc88a, #17a673);
+            }
 
-        .bg3 {
-            background: linear-gradient(45deg, #36b9cc, #2c9faf);
-        }
+            .bg3 {
+                background: linear-gradient(45deg, #36b9cc, #2c9faf);
+            }
 
-        .bg4 {
-            background: linear-gradient(45deg, #f6c23e, #dda20a);
-        }
-    </style>
+            .bg4 {
+                background: linear-gradient(45deg, #f6c23e, #dda20a);
+            }
+        </style>
 </head>
 
 <body>
@@ -112,7 +112,7 @@ $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM depar
                         <h2><?php echo $total_items; ?></h2>
                     </div>
                 </div> -->
-<!-- 
+                    <!-- 
                     <div class="col-md-3">
                         <div class="stat-card bg4">
                             <h5>Total Requests</h5>

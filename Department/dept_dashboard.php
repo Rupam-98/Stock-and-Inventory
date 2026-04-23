@@ -9,7 +9,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != "dept_admin") {
 }
 
 $admin_id = $_SESSION['dept_admin_id'];
-
+$department = pg_fetch_assoc(pg_query_params($conn, "SELECT * FROM department d JOIN dept_admin da ON d.dept_id = da.dept_id WHERE da.dept_admin_id = $1", array($admin_id)));
 // Get Dept Admin Info
 $admin_query = pg_query_params(
     $conn,
@@ -51,7 +51,7 @@ $dept_id = $admin['dept_id'];
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/main.css">
 
-    <style>
+    <!-- <style>
         .sidebar {
             position: fixed;
             top: 0;
@@ -100,12 +100,12 @@ $dept_id = $admin['dept_id'];
         .bg3 {
             background: linear-gradient(45deg, #f6c23e, #dda20a);
         }
-    </style>
+    </style> -->
 </head>
 
 <body>
-
-    <div class="sidebar">
+ <?php include("../Department/dept_sidebar.php"); ?>
+     <!-- <div class="sidebar">
         <h4>Dept Panel</h4>
 
         <a href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
@@ -113,12 +113,12 @@ $dept_id = $admin['dept_id'];
         <a href="#"><i class="bi bi-file-text"></i> Requests</a>
         <a href="#"><i class="bi bi-people"></i> Students</a>
         <a href="../logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
-    </div>
+    </div> -->
 
     <!-- Main Content -->
     <div class="main-content">
 
-        <h3 class="mb-4">Welcome, <?php echo $admin['name']; ?></h3>
+        <h3 class="mb-4">Department of <?php echo $department['dept_name']; ?></h3>
 
         <div class="row g-4">
 
@@ -149,6 +149,7 @@ $dept_id = $admin['dept_id'];
         </div>
 
     </div>
+    <script src="../assets/js/dadmin.js"></script>
 
 </body>
 
