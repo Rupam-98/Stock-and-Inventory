@@ -470,8 +470,8 @@ select.form-control{cursor:pointer}
   <div class="login-card">
     <div class="login-top">
       <div class="login-orb">🎓</div>
-      <h1>UniPortal</h1>
-      <p>Student Resource Management System</p>
+      <h1>NLUPortal</h1>
+      <p>Stock and Inventory Management System</p>
     </div>
     <div class="login-body">
       <?php if ($loginError): ?>
@@ -508,9 +508,9 @@ select.form-control{cursor:pointer}
   <aside class="sidebar">
     <div class="logo">
       <div class="logo-row">
-        <div class="logo-box">🎓</div> UniPortal
+        <div class="logo-box">🎓</div> NLUPortal
       </div>
-      <div class="logo-sub">Resource System</div>
+      <div class="logo-sub">Stock and Inventory Management System</div>
     </div>
 
     <!-- Student profile -->
