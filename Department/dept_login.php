@@ -3,7 +3,7 @@ session_start();
 
 // DB Connection
 $host = 'localhost';
-$dbname = 'postgres';
+$dbname = 'six_sems';
 $user = 'postgres';
 $password = '1035';
 
