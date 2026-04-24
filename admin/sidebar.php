@@ -81,7 +81,7 @@
     </div>
 
     <a href="#"><i class="bi bi-people"></i> Students</a>
-    <a href="#"><i class="bi bi-box"></i> Inventory</a>
+    <a href="../admin/inventory.php"><i class="bi bi-box"></i> Inventory</a>
     <a href="#"><i class="bi bi-file-text"></i> Requests</a>
     <a href="../logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
 

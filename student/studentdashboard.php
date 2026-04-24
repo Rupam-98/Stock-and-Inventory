@@ -2,7 +2,6 @@
 session_start();
 include("../Connection/conn.php");
 
-// Protect
 if (!isset($_SESSION['role']) || $_SESSION['role'] != "student") {
     header("Location: ../login.php");
     exit();

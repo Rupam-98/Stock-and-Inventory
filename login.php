@@ -46,7 +46,7 @@ if(isset($_POST['login'])){
         if(password_verify($password, $student['password'])){
             $_SESSION['role'] = "student";
             $_SESSION['student_id'] = $student['student_id'];
-            header("Location: ../student/studentdashboard.php");
+            header("Location: student/studentdashboard.php");
             exit();
         }
     }

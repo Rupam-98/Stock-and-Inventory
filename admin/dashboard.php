@@ -10,12 +10,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != "admin") {
 
 // Fetch Statistics
 $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM department"), 0, 0);
+$total_assets = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM inventory"), 0, 0);
+$low_stock = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM inventory WHERE
 
-// Example data (replace with real queries)
-$totalAssets = 120;
-$lowStock = 8;
-$maintenance = 5;
-//$value = 25000;
+    quantity < 5"), 0, 0);
 ?>
 
 <!DOCTYPE html>
@@ -143,18 +141,18 @@ $maintenance = 5;
 
                 <div class="card-box bg2">
                     <h5>Total Assets</h5>
-                    <h2><?= $totalAssets ?></h2>
+                    <h2><?= $total_assets ?></h2>
                 </div>
 
                 <div class="card-box bg3">
                     <h5>Low Stock</h5>
-                    <h2><?= $lowStock ?></h2>
+                    <h2><?= $low_stock ?></h2>
                 </div>
 
-                <div class="card-box bg4">
+                <!-- <div class="card-box bg4">
                     <h5>Maintenance</h5>
                     <h2><?= $maintenance ?></h2>
-                </div>
+                </div> -->
 
                <!-- <div class="card-box">
                     <h5>Total Value</h5>
