@@ -95,7 +95,7 @@
         <li><a href="../Department/dept_dashboard.php"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></a></li>
         <li><a href="../Department/dept_inventory.php"><i class="bi bi-box"></i> <span>Inventory</span></a></li>
         <li><a href="../Department/requests.php"><i class="bi bi-file-text"></i> <span>Requests</span></a></li>
-        <li><a href="#"><i class="bi bi-people"></i> <span>Students</span></a></li>
+        <li><a href="../student/add_student.php"><i class="bi bi-people"></i> <span>Students</span></a></li>
         <li><a href="../logout.php"><i class="bi bi-box-arrow-right"></i> <span>Logout</span></a></li>
     </ul>
 

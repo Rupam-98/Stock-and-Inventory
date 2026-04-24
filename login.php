@@ -37,7 +37,6 @@ if(isset($_POST['login'])){
         }
     }
 
-    // ---------- Check Student ----------
     $query = "SELECT * FROM students WHERE username = $1";
     $result = pg_query_params($conn, $query, array($username));
 
@@ -47,7 +46,7 @@ if(isset($_POST['login'])){
         if(password_verify($password, $student['password'])){
             $_SESSION['role'] = "student";
             $_SESSION['student_id'] = $student['student_id'];
-            header("Location: student/dashboard.php");
+            header("Location: ../student/studentdashboard.php");
             exit();
         }
     }

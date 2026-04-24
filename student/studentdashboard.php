@@ -1,67 +1,75 @@
 <?php
-// ---------------- DATABASE CONNECTION ----------------
-$host = "localhost";
-$port = "5432";
-$db   = "six_sem";
-$user = "postgres";
-$pass = "1035"; // change this
+session_start();
+include("../Connection/conn.php");
+
+// Protect
+if (!isset($_SESSION['role']) || $_SESSION['role'] != "student") {
+    header("Location: ../login.php");
+    exit();
+}
+
+$student_id = $_SESSION['student_id'];
+
+// Get student dept
+$res = pg_query_params($conn,
+    "SELECT dept_id FROM students WHERE student_id=$1",
+    array($student_id)
+);
+$student = pg_fetch_assoc($res);
+$dept_id = $student['dept_id'];
 
 $msg = "";
 
-try {
-    $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$db", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-    ]);
-} catch (PDOException $e) {
-    die("Database Connection Failed: " . $e->getMessage());
-}
+// ---------------- REQUEST ITEM ----------------
+if (isset($_POST['request'])) {
+    $item_id = $_POST['item_id'];
+    $qty = $_POST['req_qty'];
 
-// ---------------- CREATE TABLE ----------------
-$pdo->exec("CREATE TABLE IF NOT EXISTS items (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    quantity INT
-)");
+    // Check available stock
+    $check = pg_query_params($conn,
+        "SELECT quantity FROM inventory WHERE item_id=$1",
+        array($item_id)
+    );
+    $item = pg_fetch_assoc($check);
 
-// ---------------- ADD ITEM ----------------
-if (isset($_POST['add'])) {
-    $name = $_POST['name'];
-    $qty  = $_POST['quantity'];
+    if ($item && $qty <= $item['quantity']) {
 
-    if ($name != "" && $qty >= 0) {
-        $stmt = $pdo->prepare("INSERT INTO items(name, quantity) VALUES(?, ?)");
-        $stmt->execute([$name, $qty]);
-        $msg = "Item Added Successfully";
+        pg_query_params($conn,
+            "INSERT INTO requests (student_id, item_id, quantity_requested)
+             VALUES ($1, $2, $3)",
+            array($student_id, $item_id, $qty)
+        );
+
+        $msg = "Request Sent Successfully";
+
     } else {
-        $msg = "Invalid Input";
+        $msg = "Invalid quantity or item not available";
     }
 }
-
-// ---------------- DELETE ITEM ----------------
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    $pdo->prepare("DELETE FROM items WHERE id=?")->execute([$id]);
-    $msg = "Item Deleted";
-}
-
-// ---------------- DASHBOARD DATA ----------------
-$totalItems = $pdo->query("SELECT COUNT(*) FROM items")->fetchColumn();
-$totalQty   = $pdo->query("SELECT COALESCE(SUM(quantity),0) FROM items")->fetchColumn();
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Dashboard</title>
-
-<!-- ICONS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<title>Student Dashboard</title>
 
 <style>
-body { font-family: Arial; background:#eef2f7; margin:0; }
-header { background:#2c3e50; color:white; padding:15px; text-align:left; }
-.container { padding:20px; }
+body {
+    font-family: Arial;
+    background:#eef2f7;
+    margin:0;
+}
+
+header {
+    background:#1f2937;
+    color:white;
+    padding:15px;
+}
+
+.container {
+    padding:20px;
+}
 
 .card {
     background:white;
@@ -71,33 +79,9 @@ header { background:#2c3e50; color:white; padding:15px; text-align:left; }
     box-shadow:0 2px 6px rgba(0,0,0,0.1);
 }
 
-.dashboard {
-    display:flex;
-    gap:20px;
+h2 {
+    margin-bottom:15px;
 }
-
-.box {
-    flex:1;
-    background:white;
-    padding:20px;
-    border-radius:10px;
-    text-align:center;
-}
-
-input, button {
-    padding:10px;
-    margin:5px;
-}
-
-button {
-    background:#3498db;
-    color:white;
-    border:none;
-    border-radius:5px;
-    cursor:pointer;
-}
-
-.delete { background:red; }
 
 table {
     width:100%;
@@ -110,71 +94,82 @@ th, td {
     text-align:center;
 }
 
+th {
+    background:#1f2937;
+    color:white;
+}
+
+.btn {
+    padding:6px 10px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+.btn-request {
+    background:#3498db;
+    color:white;
+}
+
 .msg {
+    background:#d4edda;
     padding:10px;
     margin-bottom:10px;
-    background:#d4edda;
+    border-radius:5px;
 }
 </style>
+
 </head>
 
 <body>
 
 <header>
-<h1><i class="fa-solid fa-boxes-stacked"></i> Student Dashboard</h1>
+<h2>🎓 Student Dashboard</h2>
 </header>
 
 <div class="container">
 
-<!-- DASHBOARD -->
-<div class="dashboard">
+<!-- MESSAGE -->
+<?php if($msg != ""){ ?>
+<div class="msg"><?php echo $msg; ?></div>
+<?php } ?>
 
-<!-- STOCK MANAGEMENT -->
+<!-- INVENTORY -->
 <div class="card">
-<h2><i class="fa-solid fa-warehouse"></i> Stock Management</h2>
-
-<?php if($msg): ?>
-    <div class="msg"><?php echo htmlspecialchars($msg); ?></div>
-<?php endif; ?>
-
-
-<!-- REQUEST STOCK -->
-<h3><i class="fa-solid fa-arrow-down"></i> Request Stock</h3>
-<form method="POST" class="form">
-    <input type="number" name="item_id" placeholder="Item ID" required>
-    <input type="number" name="req_qty" placeholder="Request Quantity" min="1" required>
-    <button name="request"><i class="fa-solid fa-hand"></i> Request</button>
-</form>
-
-</div>
-
-<!-- TABLE -->
-<div class="card">
-<h2><i class="fa-solid fa-table"></i> Inventory List</h2>
+<h2>📦 Available Inventory</h2>
 
 <table>
 <tr>
     <th>ID</th>
     <th>Item</th>
-    <th>Quantity</th>
-    <th>Action</th>
+    <th>Category</th>
+    <th>Available</th>
+    <th>Request</th>
 </tr>
 
 <?php
-$result = $pdo->query("SELECT * FROM items ORDER BY id DESC");
-foreach ($result as $row) {
-    echo "<tr>
-        <td>{$row['id']}</td>
-        <td>{$row['name']}</td>
-        <td>{$row['quantity']}</td>
-        <td>
-            <a href='?delete={$row['id']}' onclick='return confirm(\"Delete?\")'>
-                <button class='delete'><i class=\"fa-solid fa-trash\"></i></button>
-            </a>
-        </td>
-    </tr>";
-}
+$items = pg_query_params($conn,
+    "SELECT * FROM inventory WHERE dept_id=$1 AND quantity > 0",
+    array($dept_id)
+);
+
+while ($row = pg_fetch_assoc($items)) {
 ?>
+<tr>
+    <td><?php echo $row['item_id']; ?></td>
+    <td><?php echo $row['item_name']; ?></td>
+    <td><?php echo $row['category']; ?></td>
+    <td><?php echo $row['quantity']; ?></td>
+
+    <td>
+        <form method="POST" style="display:flex; gap:5px; justify-content:center;">
+            <input type="hidden" name="item_id" value="<?php echo $row['item_id']; ?>">
+            <input type="number" name="req_qty" min="1" max="<?php echo $row['quantity']; ?>" required>
+            <button class="btn btn-request" name="request">Request</button>
+        </form>
+    </td>
+</tr>
+<?php } ?>
 
 </table>
 </div>

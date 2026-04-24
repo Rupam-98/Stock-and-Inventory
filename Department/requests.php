@@ -2,7 +2,7 @@
 session_start();
 include("../Connection/conn.php");
 
-if(!isset($_SESSION['role']) || $_SESSION['role'] != "dept_admin"){
+if (!isset($_SESSION['role']) || $_SESSION['role'] != "dept_admin") {
     header("Location: ../login.php");
     exit();
 }
@@ -10,7 +10,8 @@ if(!isset($_SESSION['role']) || $_SESSION['role'] != "dept_admin"){
 $admin_id = $_SESSION['dept_admin_id'];
 
 // Get dept
-$res = pg_query_params($conn,
+$res = pg_query_params(
+    $conn,
     "SELECT dept_id FROM dept_admin WHERE dept_admin_id=$1",
     array($admin_id)
 );
@@ -18,7 +19,8 @@ $admin = pg_fetch_assoc($res);
 $dept_id = $admin['dept_id'];
 
 // Fetch requests
-$requests = pg_query_params($conn,
+$requests = pg_query_params(
+    $conn,
     "SELECT r.*, i.item_name, s.username 
      FROM requests r
      JOIN inventory i ON r.item_id = i.item_id
@@ -28,7 +30,7 @@ $requests = pg_query_params($conn,
 );
 
 // Approve
-if(isset($_GET['approve'])){
+if (isset($_GET['approve'])) {
     $id = $_GET['approve'];
 
     // Reduce stock
@@ -44,7 +46,7 @@ if(isset($_GET['approve'])){
 }
 
 // Reject
-if(isset($_GET['reject'])){
+if (isset($_GET['reject'])) {
     $id = $_GET['reject'];
     pg_query($conn, "UPDATE requests SET status='Rejected' WHERE request_id=$id");
 }
@@ -52,49 +54,75 @@ if(isset($_GET['reject'])){
 
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Requests</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="../assets/css/requests.css">
 </head>
+<?php include("dept_sidebar.php"); ?>
+
 <body>
+    <div class="main-content">
+    <div class="container">
 
-<div class="container mt-5">
-    <h3>Item Requests</h3>
+        <h3>Item Requests</h3>
 
-    <table class="table table-bordered mt-3">
-        <thead class="table-dark">
-            <tr>
-                <th>Student</th>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Status</th>
-                <th>Action</th>
-            </tr>
-        </thead>
+        <div class="card">
 
-        <tbody>
-        <?php while($row = pg_fetch_assoc($requests)) { ?>
-            <tr>
-                <td><?php echo $row['username']; ?></td>
-                <td><?php echo $row['item_name']; ?></td>
-                <td><?php echo $row['quantity_requested']; ?></td>
-                <td><?php echo $row['status']; ?></td>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
 
-                <td>
-                    <?php if($row['status'] == 'Pending'){ ?>
-                        <a href="?approve=<?php echo $row['request_id']; ?>" class="btn btn-success btn-sm">Approve</a>
-                        <a href="?reject=<?php echo $row['request_id']; ?>" class="btn btn-danger btn-sm">Reject</a>
-                    <?php } ?>
-                </td>
-            </tr>
-        <?php } ?>
-        </tbody>
+                <tbody>
 
-    </table>
+                <?php if(pg_num_rows($requests) == 0){ ?>
+                    <tr>
+                        <td colspan="5" class="no-data">No requests found</td>
+                    </tr>
+                <?php } ?>
 
+                <?php while($row = pg_fetch_assoc($requests)) { ?>
+                    <tr>
+                        <td><?php echo $row['username']; ?></td>
+                        <td><?php echo $row['item_name']; ?></td>
+                        <td><?php echo $row['quantity_requested']; ?></td>
+
+                        <td>
+                            <span class="status <?php echo strtolower($row['status']); ?>">
+                                <?php echo $row['status']; ?>
+                            </span>
+                        </td>
+
+                        <td>
+                            <?php if($row['status'] == 'Pending'){ ?>
+                                <a href="?approve=<?php echo $row['request_id']; ?>">
+                                    <button class="btn btn-approve">Approve</button>
+                                </a>
+
+                                <a href="?reject=<?php echo $row['request_id']; ?>">
+                                    <button class="btn btn-reject">Reject</button>
+                                </a>
+                            <?php } ?>
+                        </td>
+                    </tr>
+                <?php } ?>
+
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
 </div>
-
 </body>
+
 </html>
