@@ -10,9 +10,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != "admin") {
 
 // Fetch Statistics
 $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM department"), 0, 0);
-// $total_students = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM students"), 0, 0);
-// $total_items = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM inventory"), 0, 0);
-// $total_requests = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM requests"), 0, 0);
+
+// Example data (replace with real queries)
+$totalAssets = 120;
+$lowStock = 8;
+$maintenance = 5;
+//$value = 25000;
 ?>
 
 <!DOCTYPE html>
@@ -25,108 +28,145 @@ $total_departments = pg_fetch_result(pg_query($conn, "SELECT COUNT(*) FROM depar
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
-        <style>
-            body {
-                background-color: #f4f6f9;
-            }
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
 
-            .sidebar {
-                height: 100vh;
-                background: #1f2937;
-                color: white;
-                padding: 20px;
-            }
+        .sidebar {
+            height: 100vh;
+            background: #1f2937;
+            color: white;
+            padding: 20px;
+        }
 
-            .sidebar a {
-                color: white;
-                text-decoration: none;
-                display: block;
-                padding: 10px;
-                border-radius: 5px;
-                margin-bottom: 5px;
-            }
+        .sidebar a {
+            color: white;
+            text-decoration: none;
+            display: block;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
 
-            .sidebar a:hover {
-                background: #374151;
-            }
+        .sidebar a:hover {
+            background: #374151;
+        }
 
-            .card {
-                border: none;
-                border-radius: 15px;
-            }
+        /* Dashboard Cards */
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
 
-            .stat-card {
-                padding: 20px;
-                color: white;
-                border-radius: 15px;
-            }
+        .card-box {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: 0.3s;
+        }
 
-            .bg1 {
-                background: linear-gradient(45deg, #4e73df, #224abe);
-            }
+        .card-box:hover {
+            transform: translateY(-5px);
+        }
 
-            .bg2 {
-                background: linear-gradient(45deg, #1cc88a, #17a673);
-            }
+        .card-box h5 {
+            color: #6b7280;
+            font-size: 14px;
+        }
 
-            .bg3 {
-                background: linear-gradient(45deg, #36b9cc, #2c9faf);
-            }
+        .card-box h2 {
+            margin-top: 10px;
+            font-weight: bold;
+        }
 
-            .bg4 {
-                background: linear-gradient(45deg, #f6c23e, #dda20a);
-            }
-        </style>
+        /* Colored Cards */
+        .bg1 { border-left: 5px solid #4e73df; }
+        .bg2 { border-left: 5px solid #1cc88a; }
+        .bg3 { border-left: 5px solid #36b9cc; }
+        .bg4 { border-left: 5px solid #f6c23e; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        header input {
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .btn-custom {
+            background: #4e73df;
+            color: white;
+            border-radius: 8px;
+            padding: 8px 15px;
+            border: none;
+        }
+
+        .btn-custom:hover {
+            background: #2e59d9;
+        }
+    </style>
 </head>
 
 <body>
 
-    <div class="container-fluid">
-        <div class="row">
+<div class="container-fluid">
+    <div class="row">
 
-            <?php include("sidebar.php"); ?>
+        <?php include("sidebar.php"); ?>
 
-            <!-- Main Content -->
-            <div class="col-md-10 p-4">
-                <h3 class="mb-4">Dashboard Overview</h3>
+        <!-- Main Content -->
+        <div class="col-md-10 p-4">
 
-                <div class="row g-4">
-
-                    <div class="col-md-3">
-                        <div class="stat-card bg1">
-                            <h5>Total Departments</h5>
-                            <h2><?php echo $total_departments; ?></h2>
-                        </div>
-                    </div>
-
-                    <!-- <div class="col-md-3">
-                        <div class="stat-card bg2">
-                            <h5>Total Students</h5>
-                            <h2><?php echo $total_students; ?></h2>
-                        </div>
-                    </div> -->
-
-                    <!-- <div class="col-md-3">
-                    <div class="stat-card bg3">
-                        <h5>Total Inventory Items</h5>
-                        <h2><?php echo $total_items; ?></h2>
-                    </div>
-                </div> -->
-                    <!-- 
-                    <div class="col-md-3">
-                        <div class="stat-card bg4">
-                            <h5>Total Requests</h5>
-                            <h2><?php echo $total_requests; ?></h2>
-                        </div>
-                    </div> -->
-
+            <header>
+                <h3>Dashboard Overview</h3>
+                <div>
+                    <input type="text" placeholder="Search...">
+                    <button class="btn-custom">+ New Entry</button>
                 </div>
+            </header>
+
+            <!-- Cards -->
+            <div class="dashboard-cards">
+
+                <div class="card-box bg1">
+                    <h5>Total Departments</h5>
+                    <h2><?php echo $total_departments; ?></h2>
+                </div>
+
+                <div class="card-box bg2">
+                    <h5>Total Assets</h5>
+                    <h2><?= $totalAssets ?></h2>
+                </div>
+
+                <div class="card-box bg3">
+                    <h5>Low Stock</h5>
+                    <h2><?= $lowStock ?></h2>
+                </div>
+
+                <div class="card-box bg4">
+                    <h5>Maintenance</h5>
+                    <h2><?= $maintenance ?></h2>
+                </div>
+
+               <!-- <div class="card-box">
+                    <h5>Total Value</h5>
+                    <h2>₹<?= number_format($value, 2) ?></h2>
+                </div> -->
+
             </div>
 
         </div>
-    </div>
 
+    </div>
+</div>
 
 </body>
-
 </html>
