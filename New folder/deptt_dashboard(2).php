@@ -3,9 +3,12 @@ session_start();
 
 // ── Auth guard ──────────────────────────────────────────────────────────────
 if (!isset($_SESSION['dept_id'])) {
-    header('Location: dept_login.php');
+    header('Location: login.php');
     exit;
 }
+
+// Current department name (used to scope ALL queries)
+$myDept = $_SESSION['dept_name'];
 
 // ── DB ───────────────────────────────────────────────────────────────────────
 $host = 'localhost'; $dbname = 'six_sems'; $dbuser = 'postgres'; $dbpass = '1035';
@@ -27,12 +30,20 @@ $pdo->exec("
         id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, category VARCHAR(60),
         quantity INTEGER DEFAULT 0, description TEXT, created_at TIMESTAMP DEFAULT NOW()
     );
-    CREATE TABLE IF NOT EXISTS item_requests (
-        id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
-        item_id INTEGER REFERENCES items(id) ON DELETE CASCADE, quantity INTEGER DEFAULT 1,
-        purpose TEXT, status VARCHAR(20) DEFAULT 'pending'
-            CHECK (status IN ('pending','approved','rejected','returned')),
-        requested_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS department_requests (
+        id             SERIAL PRIMARY KEY,
+        student_id     INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        department     VARCHAR(80) NOT NULL,
+        request_type   VARCHAR(20) NOT NULL CHECK (request_type IN ('missing','lost','consumable_restock','new_requirement')),
+        item_name      VARCHAR(150) NOT NULL,
+        item_category  VARCHAR(60),
+        quantity_needed INTEGER DEFAULT 1,
+        description    TEXT NOT NULL,
+        urgency        VARCHAR(20) DEFAULT 'normal' CHECK (urgency IN ('low','normal','high','urgent')),
+        status         VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','dept_approved','dept_rejected','purchase_ordered','fulfilled')),
+        dept_admin_note TEXT,
+        requested_at   TIMESTAMP DEFAULT NOW(),
+        updated_at     TIMESTAMP DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS repair_requests (
         id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
@@ -49,13 +60,17 @@ $pdo->exec("
     );
 ");
 
+// Add department column to items if it doesn't exist yet (safe migration)
+$pdo->exec("ALTER TABLE items ADD COLUMN IF NOT EXISTS department VARCHAR(80)");
+
+
 $flash = '';
 $flashType = 'success';
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 if (isset($_GET['logout'])) {
     session_destroy();
-    header('Location: dept_login.php');
+    header('Location: login.php');
     exit;
 }
 
@@ -69,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $qty   = (int)$_POST['quantity'];
         $cat   = trim($_POST['category']);
         $desc  = trim($_POST['description']);
-        $pdo->prepare("INSERT INTO items (name,category,quantity,description) VALUES (?,?,?,?)")
-            ->execute([$name, $cat, $qty, $desc]);
+        $pdo->prepare("INSERT INTO items (name,category,quantity,description,department) VALUES (?,?,?,?,?)")
+            ->execute([$name, $cat, $qty, $desc, $myDept]);
         $flash = 'Item added successfully.';
     }
 
@@ -78,26 +93,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_stock') {
         $id  = (int)$_POST['item_id'];
         $qty = (int)$_POST['quantity'];
-        $pdo->prepare("UPDATE items SET quantity=? WHERE id=?")->execute([$qty, $id]);
+        // Only allow updating items that belong to this department
+        $pdo->prepare("UPDATE items SET quantity=? WHERE id=? AND department=?")->execute([$qty, $id, $myDept]);
         $flash = 'Stock updated.';
     }
 
     // DELETE ITEM
     if ($action === 'delete_item') {
         $id = (int)$_POST['item_id'];
-        $pdo->prepare("DELETE FROM items WHERE id=?")->execute([$id]);
+        // Only allow deleting items that belong to this department
+        $pdo->prepare("DELETE FROM items WHERE id=? AND department=?")->execute([$id, $myDept]);
         $flash = 'Item deleted.';
     }
 
-    // UPDATE REQUEST STATUS
-    if ($action === 'update_request') {
-        $id      = (int)$_POST['request_id'];
-        $status  = $_POST['status'];
-        $remarks = trim($_POST['remarks'] ?? '');
-        $allowed = ['pending','approved','rejected','returned'];
+    // UPDATE DEPT REQUEST STATUS
+    if ($action === 'update_dept_request') {
+        $id     = (int)$_POST['request_id'];
+        $status = $_POST['status'];
+        $note   = trim($_POST['dept_admin_note'] ?? '');
+        $allowed = ['pending','dept_approved','dept_rejected','purchase_ordered','fulfilled'];
         if (in_array($status, $allowed)) {
-            $pdo->prepare("UPDATE item_requests SET status=?, updated_at=NOW() WHERE id=?")
-                ->execute([$status, $id]);
+            // Verify the request belongs to a student in this department
+            $pdo->prepare("
+                UPDATE department_requests dr
+                SET status=?, dept_admin_note=?, updated_at=NOW()
+                WHERE dr.id=?
+                  AND dr.department=?
+            ")->execute([$status, $note ?: null, $id, $myDept]);
             $flash = 'Request status updated.';
         }
     }
@@ -107,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sname = trim($_POST['student_name']);
         $sid   = trim($_POST['student_id']);
         $semail= trim($_POST['student_email']);
-        $sdept = trim($_POST['student_dept']);
+        $sdept = $myDept; // Always assign to the logged-in department — ignore any form input
         $spass = password_hash(trim($_POST['student_password']), PASSWORD_DEFAULT);
         try {
             $pdo->prepare("INSERT INTO students (name,student_id,email,department,password) VALUES (?,?,?,?,?)")
@@ -120,22 +142,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ── DATA FETCH ────────────────────────────────────────────────────────────────
-$items    = $pdo->query("SELECT * FROM items ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
-$requests = $pdo->query("
-    SELECT ir.*, s.name AS student_name, s.student_id AS s_id, i.name AS item_name
-    FROM item_requests ir
-    JOIN students s ON s.id = ir.student_id
-    JOIN items    i ON i.id = ir.item_id
-    ORDER BY ir.requested_at DESC
-")->fetchAll(PDO::FETCH_ASSOC);
-$students = $pdo->query("SELECT * FROM students ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+// ── DATA FETCH (all scoped to this department) ────────────────────────────
+$items    = $pdo->prepare("SELECT * FROM items WHERE department=? ORDER BY created_at DESC");
+$items->execute([$myDept]);
+$items    = $items->fetchAll(PDO::FETCH_ASSOC);
+
+$dept_requests_stmt = $pdo->prepare("
+    SELECT dr.*, s.name AS student_name, s.student_id AS s_id, s.department AS s_dept
+    FROM department_requests dr
+    JOIN students s ON s.id = dr.student_id
+    WHERE dr.department=?
+    ORDER BY dr.requested_at DESC
+");
+$dept_requests_stmt->execute([$myDept]);
+$dept_requests = $dept_requests_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$students_stmt = $pdo->prepare("SELECT * FROM students WHERE department=? ORDER BY created_at DESC");
+$students_stmt->execute([$myDept]);
+$students = $students_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Stats
-$totalItems    = count($items);
-$totalStudents = count($students);
-$pendingReqs   = count(array_filter($requests, fn($r) => $r['status'] === 'pending'));
-$approvedReqs  = count(array_filter($requests, fn($r) => $r['status'] === 'approved'));
+$totalItems       = count($items);
+$totalStudents    = count($students);
+$pendingReqs      = count(array_filter($dept_requests, fn($r) => $r['status'] === 'pending'));
+$approvedReqs     = count(array_filter($dept_requests, fn($r) => $r['status'] === 'dept_approved'));
+$orderedReqs      = count(array_filter($dept_requests, fn($r) => $r['status'] === 'purchase_ordered'));
+
+// Type label helper
+function typeLabel(string $t): string {
+    return match($t) {
+        'missing'            => '🔍 Missing',
+        'lost'               => '❌ Lost',
+        'consumable_restock' => '🔄 Restock',
+        'new_requirement'    => '✨ New Req.',
+        default              => ucfirst($t),
+    };
+}
+function statusLabel(string $s): string {
+    return match($s) {
+        'pending'          => 'Pending',
+        'dept_approved'    => 'Approved',
+        'dept_rejected'    => 'Rejected',
+        'purchase_ordered' => 'Ordered',
+        'fulfilled'        => 'Fulfilled',
+        default            => ucfirst(str_replace('_',' ',$s)),
+    };
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -486,10 +538,22 @@ tr:hover td { background: #fafaf9; }
   letter-spacing: .04em;
 }
 
-.badge-pending  { background: #fef3e2; color: #d97706; }
-.badge-approved { background: #e8f8f1; color: #16a34a; }
-.badge-rejected { background: #fff0ee; color: #dc2626; }
-.badge-returned { background: #eff6ff; color: #2563eb; }
+.badge-pending          { background: #fef3e2; color: #d97706; }
+.badge-approved,
+.badge-dept_approved    { background: #e8f8f1; color: #16a34a; }
+.badge-rejected,
+.badge-dept_rejected    { background: #fff0ee; color: #dc2626; }
+.badge-returned         { background: #eff6ff; color: #2563eb; }
+.badge-purchase_ordered { background: #eff6ff; color: #2563eb; }
+.badge-fulfilled        { background: #d1fae5; color: #065f46; }
+.badge-type-missing            { background: #fef3e2; color: #d97706; }
+.badge-type-lost               { background: #fff0ee; color: #dc2626; }
+.badge-type-consumable_restock { background: #eff6ff; color: #2563eb; }
+.badge-type-new_requirement    { background: #f3e8ff; color: #7c3aed; }
+.badge-urgency-low     { background: #f0fdf4; color: #16a34a; }
+.badge-urgency-normal  { background: #fef3e2; color: #d97706; }
+.badge-urgency-high    { background: #fff7ed; color: #ea580c; }
+.badge-urgency-urgent  { background: #fff0ee; color: #dc2626; border: 1px solid #fbbcad; }
 
 /* ── MODAL / FORM ── */
 .modal-overlay {
@@ -628,7 +692,7 @@ tr:hover td { background: #fafaf9; }
     <div class="nav-section">Requests</div>
     <button class="nav-item" onclick="showTab('requests', this)">
       <svg viewBox="0 0 24 24" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>
-      Item Requests
+      Dept Reports
       <?php if ($pendingReqs > 0): ?>
         <span style="margin-left:auto;background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:20px;"><?= $pendingReqs ?></span>
       <?php endif; ?>
@@ -687,37 +751,44 @@ tr:hover td { background: #fafaf9; }
           <div class="sub">registered</div>
         </div>
         <div class="stat-card" style="--accent-color:#f59e0b">
-          <div class="label">Pending</div>
+          <div class="label">Pending Reports</div>
           <div class="value"><?= $pendingReqs ?></div>
           <div class="sub">awaiting review</div>
         </div>
         <div class="stat-card" style="--accent-color:#e84c1e">
           <div class="label">Approved</div>
           <div class="value"><?= $approvedReqs ?></div>
-          <div class="sub">this session</div>
+          <div class="sub">dept approved</div>
         </div>
       </div>
 
-      <div class="sec-header"><h2>Recent Item Requests</h2></div>
+      <div class="sec-header">
+        <h2>Recent Department Reports</h2>
+        <?php if ($orderedReqs > 0): ?>
+          <span class="badge badge-purchase_ordered"><?= $orderedReqs ?> purchase order<?= $orderedReqs !== 1 ? 's' : '' ?> pending</span>
+        <?php endif; ?>
+      </div>
       <div class="table-wrap">
-        <?php if (empty($requests)): ?>
+        <?php if (empty($dept_requests)): ?>
           <div class="empty-state">
             <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-            <p>No requests yet</p>
+            <p>No department reports yet</p>
           </div>
         <?php else: ?>
         <table>
           <thead>
-            <tr><th>Student</th><th>Item</th><th>Qty</th><th>Requested</th><th>Status</th></tr>
+            <tr><th>Student</th><th>Type</th><th>Item</th><th>Qty</th><th>Urgency</th><th>Reported</th><th>Status</th></tr>
           </thead>
           <tbody>
-            <?php foreach (array_slice($requests, 0, 6) as $r): ?>
+            <?php foreach (array_slice($dept_requests, 0, 6) as $r): ?>
             <tr>
               <td><?= htmlspecialchars($r['student_name']) ?><br><span style="color:var(--light);font-size:.75rem"><?= htmlspecialchars($r['s_id']) ?></span></td>
-              <td><?= htmlspecialchars($r['item_name']) ?></td>
-              <td><?= $r['quantity'] ?></td>
+              <td><span class="badge badge-type-<?= $r['request_type'] ?>"><?= typeLabel($r['request_type']) ?></span></td>
+              <td style="font-weight:500"><?= htmlspecialchars($r['item_name']) ?></td>
+              <td><?= $r['quantity_needed'] ?></td>
+              <td><span class="badge badge-urgency-<?= $r['urgency'] ?>"><?= ucfirst($r['urgency']) ?></span></td>
               <td style="color:var(--mid);font-size:.82rem"><?= date('d M, H:i', strtotime($r['requested_at'])) ?></td>
-              <td><span class="badge badge-<?= $r['status'] ?>"><?= ucfirst($r['status']) ?></span></td>
+              <td><span class="badge badge-<?= $r['status'] ?>"><?= statusLabel($r['status']) ?></span></td>
             </tr>
             <?php endforeach; ?>
           </tbody>
@@ -773,48 +844,67 @@ tr:hover td { background: #fafaf9; }
       </div>
     </section>
 
-    <!-- ══════════ REQUESTS TAB ══════════ -->
+    <!-- ══════════ DEPT REPORTS TAB ══════════ -->
     <section id="tab-requests" class="tab-section">
       <div class="sec-header">
-        <h2>Item Requests</h2>
-        <span style="font-size:.82rem;color:var(--mid)"><?= count($requests) ?> total request<?= count($requests) !== 1 ? 's' : '' ?></span>
+        <h2>Department Reports</h2>
+        <span style="font-size:.82rem;color:var(--mid)"><?= count($dept_requests) ?> total report<?= count($dept_requests) !== 1 ? 's' : '' ?></span>
       </div>
       <div class="table-wrap">
-        <?php if (empty($requests)): ?>
+        <?php if (empty($dept_requests)): ?>
           <div class="empty-state">
             <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-            <p>No requests found</p>
+            <p>No department reports found</p>
           </div>
         <?php else: ?>
         <table>
           <thead>
-            <tr><th>Student</th><th>Item</th><th>Quantity</th><th>Status</th><th>Requested</th><th>Action</th><th>Remarks</th></tr>
+            <tr><th>Student</th><th>Type</th><th>Item</th><th>Qty</th><th>Urgency</th><th>Description</th><th>Reported</th><th>Status &amp; Action</th></tr>
           </thead>
           <tbody>
-            <?php foreach ($requests as $r): ?>
+            <?php foreach ($dept_requests as $r): ?>
             <tr>
               <td>
                 <strong><?= htmlspecialchars($r['student_name']) ?></strong><br>
-                <span style="color:var(--light);font-size:.75rem"><?= htmlspecialchars($r['s_id']) ?></span>
+                <span style="color:var(--light);font-size:.75rem"><?= htmlspecialchars($r['s_id']) ?></span><br>
+                <span style="color:var(--mid);font-size:.72rem"><?= htmlspecialchars($r['department']) ?></span>
               </td>
-              <td><?= htmlspecialchars($r['item_name']) ?></td>
-              <td><?= $r['quantity'] ?></td>
-              <td><span class="badge badge-<?= $r['status'] ?>"><?= ucfirst($r['status']) ?></span></td>
-              <td style="color:var(--mid);font-size:.8rem"><?= date('d M Y', strtotime($r['requested_at'])) ?></td>
+              <td><span class="badge badge-type-<?= $r['request_type'] ?>"><?= typeLabel($r['request_type']) ?></span></td>
+              <td style="font-weight:500">
+                <?= htmlspecialchars($r['item_name']) ?>
+                <?php if ($r['item_category']): ?>
+                  <br><span style="color:var(--light);font-size:.73rem"><?= htmlspecialchars($r['item_category']) ?></span>
+                <?php endif; ?>
+              </td>
+              <td><?= $r['quantity_needed'] ?></td>
+              <td><span class="badge badge-urgency-<?= $r['urgency'] ?>"><?= ucfirst($r['urgency']) ?></span></td>
+              <td style="color:var(--mid);font-size:.8rem;max-width:200px">
+                <?= htmlspecialchars(mb_substr($r['description'], 0, 80)) ?><?= mb_strlen($r['description']) > 80 ? '…' : '' ?>
+              </td>
+              <td style="color:var(--mid);font-size:.8rem;white-space:nowrap"><?= date('d M Y', strtotime($r['requested_at'])) ?></td>
               <td>
-                <form method="POST" style="display:flex;gap:6px;align-items:center">
-                  <input type="hidden" name="action" value="update_request">
+                <form method="POST" style="display:flex;flex-direction:column;gap:6px;min-width:200px">
+                  <input type="hidden" name="action" value="update_dept_request">
                   <input type="hidden" name="request_id" value="<?= $r['id'] ?>">
-                  <select name="status" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;background:var(--bg);color:var(--ink);outline:none;cursor:pointer">
-                    <option value="pending"  <?= $r['status']==='pending'   ? 'selected' : '' ?>>Pending</option>
-                    <option value="approved" <?= $r['status']==='approved'  ? 'selected' : '' ?>>Approved</option>
-                    <option value="rejected" <?= $r['status']==='rejected'  ? 'selected' : '' ?>>Rejected</option>
-                    <option value="returned" <?= $r['status']==='returned'  ? 'selected' : '' ?>>Returned</option>
-                  </select>
-                  <button class="btn btn-sm btn-success" type="submit">Update</button>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <select name="status" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;background:var(--bg);color:var(--ink);outline:none;cursor:pointer">
+                      <option value="pending"          <?= $r['status']==='pending'          ? 'selected' : '' ?>>Pending</option>
+                      <option value="dept_approved"    <?= $r['status']==='dept_approved'    ? 'selected' : '' ?>>Approve</option>
+                      <option value="dept_rejected"    <?= $r['status']==='dept_rejected'    ? 'selected' : '' ?>>Reject</option>
+                      <option value="purchase_ordered" <?= $r['status']==='purchase_ordered' ? 'selected' : '' ?>>Ordered</option>
+                      <option value="fulfilled"        <?= $r['status']==='fulfilled'        ? 'selected' : '' ?>>Fulfilled</option>
+                    </select>
+                    <button class="btn btn-sm btn-success" type="submit">Save</button>
+                  </div>
+                  <input type="text" name="dept_admin_note"
+                    value="<?= htmlspecialchars($r['dept_admin_note'] ?? '') ?>"
+                    placeholder="Admin note (optional)"
+                    style="padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.78rem;background:var(--bg);color:var(--ink);outline:none;width:100%">
+                  <?php if ($r['status'] !== 'pending'): ?>
+                    <span class="badge badge-<?= $r['status'] ?>" style="align-self:flex-start"><?= statusLabel($r['status']) ?></span>
+                  <?php endif; ?>
                 </form>
               </td>
-              <td style="color:var(--mid);font-size:.8rem"><?= htmlspecialchars($r['purpose'] ?? '—') ?></td>
             </tr>
             <?php endforeach; ?>
           </tbody>
@@ -917,7 +1007,9 @@ tr:hover td { background: #fafaf9; }
       <div class="form-row">
         <div class="form-group">
           <label>Department</label>
-          <input type="text" name="student_dept" placeholder="Department ">
+          <input type="text" value="<?= htmlspecialchars($myDept) ?>" disabled
+            style="background:#f0ede8;color:var(--mid);cursor:not-allowed">
+          <input type="hidden" name="student_dept" value="<?= htmlspecialchars($myDept) ?>">
         </div>
         <div class="form-group">
           <label>Password *</label>
@@ -936,7 +1028,7 @@ tr:hover td { background: #fafaf9; }
 const titles = {
   dashboard: 'Dashboard',
   items:     'Item Management',
-  requests:  'Item Requests',
+  requests:  'Department Reports',
   students:  'Student Management'
 };
 

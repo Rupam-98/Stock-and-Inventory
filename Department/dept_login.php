@@ -95,7 +95,7 @@ html, body {
 .page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr 480px;
+  grid-template-columns: 1fr ;
 }
 
 /* LEFT PANEL */
@@ -203,7 +203,7 @@ html, body {
 
 /* RIGHT PANEL */
 .panel-right {
-  background: var(--card);
+  background: #15287e2e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,7 +314,7 @@ html, body {
 <body>
 <div class="page">
 
-  <!-- LEFT -->
+<!-- 
   <div class="panel-left">
     <div class="logo-mark">
       <div class="logo-icon">
@@ -335,7 +335,7 @@ html, body {
       <div class="feat"><div class="feat-dot"></div><span>Real-time Status Tracking</span></div>
     </div>
   </div>
-
+ -->
   <!-- RIGHT -->
   <div class="panel-right">
     <div class="login-box">
@@ -359,7 +359,7 @@ html, body {
       </form>
 
       <div class="hint">
-        Default credentials — <strong>dept_admin</strong> / <strong>admin123</strong>
+      <strong>NORTH LAKHIMPUR UNIVERSITY</strong>
       </div>
     </div>
   </div>
